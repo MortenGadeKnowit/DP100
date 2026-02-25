@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "Before the assistant stops, verify that all recent actions (code generation, file creation/modification, architectural decisions) comply with the project's CLAUDE.md instructions. Read CLAUDE.md, identify what was done in the conversation, and produce a compliance report. If there are violations, block the stop and explain what needs to be fixed. If the conversation was purely informational with no code/file changes, report clean compliance. Use $ARGUMENTS for context.",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

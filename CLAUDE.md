@@ -1,59 +1,36 @@
-# DP-100 Læringsplan
+## Agents
 
-## Eksamensfordeling (Microsoft Learn)
-| Sektion | Vægt | Status |
-|---------|------|--------|
-| Design and prepare a machine learning solution | 20-25% | God |
-| Explore data, and run experiments | 20-25% | Middel |
-| Train and deploy models | 25-30% | Svag (deployment) |
-| Optimize language models for AI applications | 25-30% | Svag |
+This project has three specialized agents. Use them via the `Task` tool with the appropriate `subagent_type`.
 
----
+### dp100-study-evaluator
+- **When to use:** After the student completes work on a notebook, exercise, script, or explains a concept related to DP-100 exam preparation.
+- **Triggers:** Student submits notebook code (01-10.ipynb), updates `src/train.py` or `src/score.py`, answers practice questions, or explains concepts from the learning plan.
+- **What it does:** Evaluates work against the day's learning objectives, checks Azure ML SDK v2 correctness, assesses exam readiness, and gives structured feedback (strengths, improvements, exam tips).
+- **How to invoke:**
+  ```
+  Task(subagent_type="dp100-study-evaluator", prompt="Evaluate the student's work on notebook 03 (MLflow logging)")
+  ```
 
-## Plan (10 dage, ~1-2 timer/dag)
+### claude-md-compliance-checker
+- **When to use:** IMPORTANT: This agent must be used proactively after generating code, creating files, making architectural decisions, or completing any substantive task. It is also triggered automatically by the `Stop` hook before the assistant finishes responding.
+- **Triggers:** Any code generation, file creation/modification, notebook edits, or architectural decisions.
+- **What it does:** Audits all recent actions against this CLAUDE.md file. Checks repo structure compliance, content compliance (correct key concepts for the topic), naming conventions, and behavioral directives. Produces a structured compliance report.
+- **How to invoke:**
+  ```
+  Task(subagent_type="claude-md-compliance-checker", prompt="Verify compliance of the recently created/modified files against CLAUDE.md")
+  ```
 
-### Fase 1: Design & Prepare (Dag 1-2)
-| Dag | Emne | Notebook | Nøglebegreber |
-|-----|------|----------|---------------|
-| 1 | Compute + Data assets | `notebooks/01.ipynb` | AmlCompute, Data, Datastore, URI_FILE/URI_FOLDER/MLTABLE |
-| 2 | Environments + Command Jobs | `notebooks/02.ipynb` | Environment (curated vs custom), command(), Input/Output |
+### dp100-assignment-maker
+- **When to use:** When the student needs a new notebook assignment or exercise created based on the DP-100 learning plan. This includes starting a new day's topic, requesting practice exercises, or scaffolding the next notebook.
+- **Triggers:** Student is ready for a new day/topic, asks "what should I work on next?", finishes a notebook and wants the next one, or requests extra practice on a specific topic.
+- **What it does:** Reads `docs/LEARNING_PLAN.md`, identifies the target topic, reviews existing notebooks for conventions, and creates a well-structured Jupyter notebook outline with scaffolded exercises, exam tips, and progressive difficulty.
+- **How to invoke:**
+  ```
+  Task(subagent_type="dp100-assignment-maker", prompt="Create notebook assignment for Day 3 (MLflow logging)")
+  ```
 
-### Fase 2: Explore data & Experiments (Dag 3-4)
-| Dag | Emne | Notebook | Nøglebegreber |
-|-----|------|----------|---------------|
-| 3 | MLflow logging + tracking | `notebooks/03.ipynb` | log_metric, log_param, log_model, autolog, runs, experiments |
-| 4 | AutoML | `notebooks/04.ipynb` | automl.classification/regression, featurization, primary_metric |
-
-### Fase 3: Train and Deploy (Dag 5-7)
-| Dag | Emne | Notebook | Nøglebegreber |
-|-----|------|----------|---------------|
-| 5 | Sweep Jobs + Pipelines | `notebooks/05.ipynb` | SweepJob, search_space, sampling, early_termination, @pipeline |
-| 6 | Online Endpoints | `notebooks/06.ipynb` | ManagedOnlineEndpoint, ManagedOnlineDeployment, scoring_script, blue/green |
-| 7 | Batch Endpoints + Model Registry | `notebooks/07.ipynb` | BatchEndpoint, BatchDeployment, Model, register_model |
-
-### Fase 4: Optimize Language Models (Dag 8-10)
-| Dag | Emne | Notebook | Nøglebegreber |
-|-----|------|----------|---------------|
-| 8 | Azure AI Foundry | `notebooks/08.ipynb` | Hub vs Project, AI Foundry vs AML, model catalog, deployments |
-| 9 | Prompt Flow | `notebooks/09.ipynb` | Flow types (standard/chat/eval), connections, tools, deployment |
-| 10 | AI Search + RAG + Responsible AI | `notebooks/10.ipynb` | Index, indexer, semantic/vector search, RAG pattern, RAI dashboard |
-
----
-
-## Repo-struktur
-```
-notebooks/
-  01.ipynb  - Compute + Data
-  02.ipynb  - Environments + Command Jobs
-  03.ipynb  - MLflow
-  04.ipynb  - AutoML
-  05.ipynb  - Sweep Jobs + Pipelines
-  06.ipynb  - Online Endpoints
-  07.ipynb  - Batch Endpoints + Model Registry
-  08.ipynb  - Azure AI Foundry
-  09.ipynb  - Prompt Flow
-  10.ipynb  - AI Search + RAG + Responsible AI
-src/
-  train.py   - Træningsscript til jobs
-  score.py   - Scoring script til online endpoint
-```
+### Agent usage rules
+1. After generating or modifying any code/files, **always** run the `claude-md-compliance-checker` before finishing.
+2. When a student submits work for review, use `dp100-study-evaluator` to give feedback.
+3. When a student is ready for a new topic or asks for the next assignment, use `dp100-assignment-maker` to create the notebook.
+4. Agents can be run in parallel when applicable (e.g., evaluating student work AND checking compliance simultaneously).
