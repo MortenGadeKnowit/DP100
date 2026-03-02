@@ -10,7 +10,8 @@
 - Day 2 (Environments + Command Jobs): Completed — evaluated, Almost Ready
 - Day 3 (MLflow logging + tracking): Completed — evaluated, Almost Ready
 - Day 4 (AutoML): Completed — evaluated, Almost Ready
-- Days 5-10: Not yet submitted
+- Day 5 (Sweep Jobs + Pipelines): Completed — evaluated, Needs More Work (sweep Almost Ready, pipeline scripts have critical bugs)
+- Days 6-10: Not yet submitted
 
 ## Recurring Strengths
 - SDK v2 syntax is fundamentally correct (command(), Input/Output, create_or_update())
@@ -20,7 +21,8 @@
 - Job completed successfully end-to-end
 
 ## Recurring Weaknesses / Watch Areas
-- mlflow.start_run() in command jobs: Day 2 issue (nested run) now RESOLVED in Day 3 — student uses it correctly for run naming. Confirm understanding is solid.
+- mlflow.start_run() in command jobs: Day 2 issue, appeared again in Day 5 train_step.py (pipeline step). Pattern: student keeps adding start_run() inside scripts that AML already manages. Critical for Days 6-7 (online/batch endpoints). Flag every occurrence.
+- dest= typo in argparse: Day 5 train_step.py has --solver with dest="reg" — a copy-paste typo that silently corrupts args. Watch for this in future scripts.
 - log_artifact vs log_model: RESOLVED in Day 3 — student now uses mlflow.sklearn.log_model() correctly.
 - Bloated conda specs: Issue identified in Day 2 — not retested in Day 3 (environment was reused).
 - Output(path=None): Day 2 issue, not retested in Day 3.
@@ -40,11 +42,15 @@
 
 ## Exam Areas Needing Extra Attention
 - log_model vs log_artifact (Day 3/7 boundary — critical for model registry)
-- Azure ML auto-managed MLflow run context in command jobs
+- Azure ML auto-managed MLflow run context in command jobs (recurring Day 2+5 issue)
 - Minimal environment dependencies (azureml-mlflow is the key package)
 - AutoML primary_metric min/max direction: student does not know this is hardcoded (not configurable)
 - AutoML one-hot vs ordinal encoding: student oversimplified featurization behavior
 - Incomplete inference cell in Day 4: student loaded data but never called predict() — inference pattern needs reinforcement before Day 6 (endpoints)
+- Intermediate pipeline data storage: student thinks it's Docker runtime. Correct: Azure Blob Storage (workspaceblobstore), auto-generated paths. MUST fix before Day 6-7.
+- Bayesian + early termination incompatibility: student does not understand the reason (Bayesian can't learn from incomplete/killed trials). Key concept for exam.
+- artifact_path in log_model: must be a string name, not a Path object. Recurring risk.
+- LogUniform vs Choice for continuous hyperparams: student defaults to Choice even for regularization (orders of magnitude range).
 
 ## Notes on Feedback Preferences
 - Student writes in Danish; feedback provided in English (matching their code comments)

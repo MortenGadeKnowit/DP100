@@ -46,6 +46,9 @@
 - 03.ipynb: Created 2026-02-23 — MLflow logging (10 sections + bonus)
 - 04.ipynb: Created 2026-02-23 — AutoML (10 sections + bonus regression): automl.classification, featurization, primary_metric, set_limits, mlflow.pyfunc.load_model
 - 05.ipynb: Created 2026-02-24 — Sweep Jobs + Pipelines (12 sections + bonus): search_space, Choice/LogUniform, sampling_algorithm, BanditPolicy, @pipeline, prep.py trin, pipeline output kobling
+- 06_07.ipynb: Created 2026-03-01 — COMBINED Dag 6+7 (exam-focused): Model Registry, score.py (%%writefile, only signatures), ManagedOnlineEndpoint, ManagedOnlineDeployment, blue/green traffic, invoke(), BatchEndpoint, BatchDeployment, BatchRetrySettings, batch invoke, cleanup, bonus (no-code MLflow deploy), 7-question quiz
+- 08_09.ipynb: Created 2026-03-01 — COMBINED Dag 8+9 (exam-focused, theory-heavy): AI Foundry Hub vs Project, Foundry/AML relation table, Model Catalog (Serverless API vs Managed Compute), SDK listing registered models and connections, Prompt Flow types (Standard/Chat/Evaluation), connections+Key Vault, tools (LLM/Python/Prompt), deployment of flows as Online Endpoints, groundedness/evaluation metrics, 4-question reflections per day, 7-question multiple-choice exam quiz
+- 10.ipynb: Created 2026-03-01 — FINAL exam-prep notebook (theory-heavy, 3 parts): Part 1 AI Search (index structure, field attributes table, 4 search types, skillsets+indexers, 1 code exercise), Part 2 RAG (retrieve/augment/generate, chunking, embeddings, On Your Data, 4-question reflection), Part 3 Responsible AI (6 principles table, 4 RAI Dashboard components, SHAP, Content Safety, 1 code exercise, 4-question reflection), 12-question multiple-choice quiz with full facit+explanations
 
 ## SDK v2 patterns used in this project
 - Always `from azure.ai.ml import MLClient, command, Input, Output`
@@ -66,6 +69,19 @@
 - Set limits: `sweep_job.set_limits(max_total_trials=N, max_concurrent_trials=M)`
 - Early termination: `from azure.ai.ml.sweep import BanditPolicy` — NOT compatible with bayesian sampling
 - Best run: `mlflow.search_runs(experiment_names=[...], order_by=[\"metrics.METRIC DESC\"])`
+
+## Endpoint + Model Registry patterns (Dag 6+7)
+- Model Registry: `Model(name, path, type, tags)` — `ml_client.models.create_or_update()`
+- Types: `AssetTypes.MLFLOW_MODEL`, `CUSTOM_MODEL`, `TRITON_MODEL`
+- Path from job: `"azureml://jobs/<job_name>/outputs/default/paths/model/"`
+- Online endpoint: `ManagedOnlineEndpoint(name, auth_mode="key")`
+- Deployment: `ManagedOnlineDeployment(name, endpoint_name, model, environment, code_configuration, instance_type, instance_count)`
+- Traffic on endpoint object: `endpoint.traffic = {"blue": 100}` — sum must be 100
+- Test: `ml_client.online_endpoints.invoke(endpoint_name, request_file=...)` — add `deployment_name` to bypass traffic
+- No-code deploy: omit `code_configuration` for MLFLOW_MODEL types (Azure ML auto-generates scorer)
+- Batch: `BatchEndpoint` + `BatchDeployment(compute="my-cluster", mini_batch_size, output_action, retry_settings)`
+- Batch invoke: `ml_client.batch_endpoints.invoke(endpoint_name, input=Input(...))` returns job object
+- Scoring script: `init()` uses `os.environ["AZUREML_MODEL_DIR"]`, `run(raw_data: str)` returns str
 
 ## Pipeline patterns
 - Decorator: `from azure.ai.ml.dsl import pipeline` then `@pipeline(default_compute=..., experiment_name=...)`

@@ -1,10 +1,9 @@
+import matplotlib.pyplot as plt
 import argparse
 from pathlib import Path
 import pandas as pd
+import mlflow
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")  # Ikke-interaktiv backend til server-miljø
-import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
@@ -13,7 +12,6 @@ import mlflow.sklearn
 from mlflow.types.schema import Schema, ColSpec
 from mlflow.models.signature import ModelSignature
 
-# used for model signature
 input_schema = Schema([
     ColSpec("integer", "Age"),
     ColSpec("integer", "WorkLifeBalance"),
@@ -21,30 +19,22 @@ input_schema = Schema([
     ColSpec("integer", "JobInvolvement"),
     ColSpec("integer", "YearsAtCompany"),
     ColSpec("integer", "MonthlyIncome"),
-    ColSpec("integer", "Gender_Male"),
+    ColSpec("integer", "Gender_Female"),
+    ColSpec("integer", "Department_Human Resources"),
     ColSpec("integer", "Department_Research & Development"),
     ColSpec("integer", "Department_Sales"),
 ])
 
-# used for model signature
 output_schema = Schema([ColSpec("boolean")])
-
-# model signature
 signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
-def make_dummies(df: pd.DataFrame, categorical_columns: list) -> pd.DataFrame:
-    for col in categorical_columns:
-        dummies = pd.get_dummies(df[col], prefix=col, drop_first=True)
-        df = pd.concat([df, dummies], axis=1)
-    df.drop(columns=categorical_columns, inplace=True)
-    return df
-
-
-def get_data(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path)
-    print(f"Analyzing {len(df)} rows of data")
-    return df
-
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_data", dest="input_data", required=True, type=str)
+    parser.add_argument("--model_dir", dest="model_dir", required=True, type=str)
+    parser.add_argument("--reg", dest="reg", required=True, type=float, default=0.01)
+    parser.add_argument("--solver", dest="solver", required=True, type=str, default="liblinear")
+    return parser.parse_args()
 
 def log_coef_plot(model: LogisticRegression, feature_names: list, output_dir: Path) -> None:
     """Lav et coefficients-plot og log det som MLflow-artefakt."""
@@ -61,46 +51,20 @@ def log_coef_plot(model: LogisticRegression, feature_names: list, output_dir: Pa
     mlflow.log_artifact(str(plot_path))
     print(f"Coefficient plot logget: {plot_path}")
 
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input_data", dest="input_data", type=str, required=True)
-    parser.add_argument("--reg", dest="reg", type=float, default=0.01,
-                        help="Regularization rate (inverse used for C)")
-    parser.add_argument("--model_dir", type=str, required=True,
-                        help="Directory to save model (AML output)")
-    return parser.parse_args()
-
-
 def main(args: argparse.Namespace) -> None:
-    df = get_data(args.input_data)
-
-    keep_cols = [
-        "Attrition", "Age", "Gender", "Department", "WorkLifeBalance",
-        "YearsSinceLastPromotion", "JobInvolvement", "YearsAtCompany", "MonthlyIncome"
-    ]
-    df = df[keep_cols]
-    df = make_dummies(df, ["Gender", "Department"])
-
+    df = pd.read_csv(args.input_data)
     X = df.drop(columns=["Attrition"]).values
     y = df["Attrition"].values
-    print(f"Training on df: {df.head()}")
     feature_names = df.drop(columns=["Attrition"]).columns.tolist()
-    print(f"Feature list: {feature_names}")
-
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=0)
-
     C = 1.0 / float(args.reg)
-
     print(f"Training LogisticRegression with reg={args.reg}, C={C}")
-    model = LogisticRegression(C=C, solver="liblinear").fit(X_train, y_train)
-
+    model = LogisticRegression(C=C, solver=args.solver).fit(X_train, y_train)
     y_hat = model.predict(X_test)
     acc = float(np.average(y_hat == y_test))
     print(f"Accuracy: {acc}")
-
     mlflow.log_param("reg", args.reg)
-    mlflow.log_param("C", C)
+    mlflow.log_param("solver", args.solver)
     mlflow.log_metric("val_accuracy", acc)
 
     if len(np.unique(y_test)) == 2:
@@ -111,12 +75,7 @@ def main(args: argparse.Namespace) -> None:
 
     out_dir = Path(args.model_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Log modellen med mlflow.sklearn.log_model
     mlflow.sklearn.log_model(model, artifact_path="model", signature=signature)
-    print(f"Model logget til artifact_path='model'")
-
-    # Log coefficient plot som artefakt
     log_coef_plot(model, feature_names, out_dir)
 
 if __name__ == "__main__":

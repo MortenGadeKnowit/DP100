@@ -1,5 +1,49 @@
 # Per-Day Student Notes
 
+## Day 5 — Sweep Jobs + Pipelines (Evaluated 2026-03-01)
+
+**Verdict:** Needs More Work (sweep section: Almost Ready; pipeline section: Needs More Work)
+
+**What was correct:**
+- SweepJob submission pattern: command() -> .sweep() -> create_or_update() — correct flow
+- No mlflow.start_run() in train_sweep.py sweep trial script — correct understanding that AML manages run context
+- BanditPolicy instantiation and early_termination_policy= kwarg in .sweep() — correct
+- ml_client.jobs.create_or_update() used correctly in cell-12 (fixed from earlier cell which used ml_client.create_or_update())
+- max_total_trials + max_concurrent_trials + timeout set on sweep — correct
+- pipeline @decorator pattern, chaining prep.outputs.output_data -> train input — correct
+- Pipeline submitted successfully with ml_client.jobs.create_or_update()
+- Reflection Q1 (sweep vs manual loop): strong — mentions early termination, Studio overview, sampling flexibility
+- Reflection Q4 (separate prep step): good — reusability and modularity
+- ModelSignature in train_sweep.py — correct and imports present at module level (fixed from Day 3 issue)
+- log_model with signature and correct artifact_path="model" string — correct in train_sweep.py
+
+**Bugs found in pipeline scripts — would fail on remote:**
+
+1. CRITICAL — prep_step.py line 35: `args.model_dir` used but argument is defined as `--output_data` with `dest="output_data"`. AttributeError on remote. Should be `args.output_data`.
+2. CRITICAL — train_step.py line 36: `--solver` argument has `dest="reg"` (should be `dest="solver"`) — silently overwrites args.reg with the solver string. Then `type=float` on solver means argparse tries to cast "liblinear" to float -> ValueError crash.
+3. HIGH — train_step.py line 80: `mlflow.sklearn.log_model(model, artifact_path=out_dir, ...)` — artifact_path must be a string name (like "model"), not a Path object. This will either crash or produce a malformed artifact path.
+4. HIGH — train_step.py line 62: `with mlflow.start_run()` inside a pipeline step script — creates a nested run inside AML's managed run context. Same pattern as Day 2 mistake. Metrics logged inside the with block will be logged to the child run, not the pipeline step's run.
+5. MEDIUM — train_step.py lines 5+10: `import mlflow` appears twice (cosmetic but sloppy).
+6. MEDIUM — train_step.py line 36: `default="liblinear"` on an argument declared as `type=float` — type conflict would cause a crash at parse time if the default is used.
+7. NOTE: The pipeline command for train_step.py passes `--reg 0.05` but NOT `--solver`, even though solver is required=True. This means the pipeline would always crash on the solver argument.
+
+**Conceptual gaps:**
+- Intermediate data storage (Reflection Q5): Student says "stored in docker runtime" — WRONG. Correct answer: Azure Blob Storage (workspaceblobstore), auto-generated path under the pipeline job run. Student partially correct that "you control via inputs" but misses that Azure ML auto-generates intermediate paths.
+- Bayesian + early termination (Reflection Q3): Student admits "I don't know." Key concept: Bayesian uses the history of previous trials to decide WHICH hyperparams to try next. Early termination kills trials before they complete. If you kill a trial early, its metric is unreliable — Bayesian can't learn from incomplete data, so its model of the search space degrades. Hence: early termination is incompatible with Bayesian sampling.
+- Bayesian Q2 (partial): Correctly states Bayesian learns direction and needs continuous params. Missing: requires >= 20 trials to work well.
+
+**Search space issue:**
+- Used Choice([0.001, 0.05, 0.1]) for reg instead of LogUniform(-3, 0). This works but misses the purpose — LogUniform is appropriate for regularization which varies over orders of magnitude.
+
+**On-disk src/train.py state:**
+- Now has `with mlflow.start_run(run_name=f"sweep-lr-reg-{args.reg}")` at line 83 — this is the Day 3 anti-pattern (nested run) still present. The new train_sweep.py correctly removes this. Student created train_sweep.py as a clean copy; however train.py still has the bug.
+
+**Key file bugs to fix before Day 6:**
+- /Users/gade/Knowit/DP100/src/prep_step.py line 35: args.model_dir -> args.output_data
+- /Users/gade/Knowit/DP100/src/train_step.py line 36: dest="reg" -> dest="solver", type=float -> type=str
+- /Users/gade/Knowit/DP100/src/train_step.py line 80: artifact_path=out_dir -> artifact_path="model"
+- /Users/gade/Knowit/DP100/src/train_step.py line 62: remove mlflow.start_run() wrapper
+
 ## Day 4 — AutoML (Evaluated 2026-02-24)
 
 **Verdict:** Almost Ready
